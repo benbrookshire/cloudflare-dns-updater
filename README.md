@@ -2,7 +2,7 @@
 
 [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fbenbrookshire%2Fcloudflare-dns-updater)
 
-This is a Home Assistant app (formerly called an add-on). It keeps `example.com` pointed at your home's public IP by checking every 15 minutes. It uses only bash, curl and jq.
+This is a Home Assistant app (formerly called an add-on). It keeps your Cloudflare domain pointed at your home's public IP by checking every 15 minutes. It uses only bash, curl and jq.
 
 ```
 repository.yaml          # makes this repo an app repository
