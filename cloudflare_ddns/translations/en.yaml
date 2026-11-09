@@ -14,6 +14,9 @@ configuration:
   ipv6:
     name: Update IPv6 (AAAA) too
     description: Only turn on if your home network has public IPv6.
-  min_ip_sources:
-    name: Minimum agreeing IP sources
-    description: The public IP is checked with several independent services (4 for IPv6, 5 for IPv4). DNS is only updated if all that answer agree and at least this many answered.
+  router_upnp:
+    name: Ask the router (UPnP)
+    description: Require your router to confirm its public IPv4 address over UPnP before DNS is changed. Needs UPnP turned on in the router, and the router must hold the public IP itself (no second router in front of it).
+  router_upnp_url:
+    name: Router UPnP description URL
+    description: Optional. Leave empty to find the router automatically. Example for an eero, http://192.168.1.1:1900/igd.xml

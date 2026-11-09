@@ -5,8 +5,12 @@ CF_API_TOKEN="$(bashio::config 'api_token')"
 CF_ZONE="$(bashio::config 'zone')"
 CF_RECORDS="$(bashio::config 'records')"
 CF_IPV6="$(bashio::config 'ipv6')"
-MIN_IP_SOURCES="$(bashio::config 'min_ip_sources' 3)"
-export CF_API_TOKEN CF_ZONE CF_RECORDS CF_IPV6 MIN_IP_SOURCES
+ROUTER_UPNP="$(bashio::config 'router_upnp' true)"
+ROUTER_DESC_URL=""
+if bashio::config.has_value 'router_upnp_url'; then
+  ROUTER_DESC_URL="$(bashio::config 'router_upnp_url')"
+fi
+export CF_API_TOKEN CF_ZONE CF_RECORDS CF_IPV6 ROUTER_UPNP ROUTER_DESC_URL
 INTERVAL="$(bashio::config 'interval_minutes')"
 
 if bashio::var.is_empty "${CF_API_TOKEN}"; then

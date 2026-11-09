@@ -1,7 +1,7 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
-RUN apk add --no-cache bash curl jq
+RUN apk add --no-cache bash curl jq socat iproute2
 
 COPY ddns.sh /usr/bin/ddns.sh
 COPY run.sh /run.sh

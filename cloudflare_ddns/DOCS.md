@@ -8,14 +8,25 @@ Every `interval_minutes` (15 by default), this app looks up your home's public I
 
 ## How the public IP is checked
 
-On every pass, the app asks several independent services for your public IP:
+Each pass checks your public IP against a local source on your own network and against outside services. DNS only changes when they all agree.
 
-- **IPv4:** Cloudflare, AWS, ipify, ipinfo and ident.me
-- **IPv6:** Cloudflare, ipify, ipinfo and ident.me
+**IPv4**
+- **Your router, over UPnP.** The router holds your public IPv4 address, so this is the main source. While `router_upnp` is on, the router has to answer, or nothing is updated.
+- **Outside services:** Cloudflare and AWS. At least one of them has to answer and match the router.
 
-DNS is only updated when **every service that answered gives the same address**, and at least `min_ip_sources` of them answered (3 by default). A service that doesn't answer is skipped. So is one that answers with something that isn't a public address, such as a private, loopback or CGNAT address, or an error page.
+**IPv6**
+- **Outside service:** Cloudflare reports the address your traffic comes from.
+- **This machine.** IPv6 has no NAT, so your AAAA record is the Home Assistant machine's own address. The address Cloudflare reports has to be one assigned to this machine.
 
-If the services disagree, the app logs every answer and leaves DNS alone until the next pass. This means a compromised or misbehaving service can delay an update, but it can't redirect your domain. It also catches the case where Home Assistant's traffic goes out through a VPN, since VPN providers often use different exit IPs for different connections.
+Any disagreement, any answer that isn't a public address (private, loopback, CGNAT, or an error page), or a router that reports a private address means DNS is left alone until the next pass. The log shows every answer it got. A router reporting a private address usually means there's a second router in front of it.
+
+So a compromised outside service can't redirect your domain. The worst it can do is delay an update. This also catches traffic going out through a VPN.
+
+### Router setup
+
+- Turn on UPnP in the router. On an eero, that's **Settings → Network settings → UPnP** in the eero app.
+- The app finds the router automatically, and only trusts an answer that comes from your default gateway. If automatic discovery doesn't work, set `router_upnp_url` to the router's description URL. For an eero at `192.168.1.1`, that's `http://192.168.1.1:1900/igd.xml`.
+- If your router doesn't hold the public IP itself, turn off `router_upnp`. For example, it might be behind an ISP box that also acts as a router. With `router_upnp` off, both Cloudflare and AWS must answer and agree.
 
 ## Create the API token
 
@@ -35,4 +46,7 @@ If the services disagree, the app logs every answer and leaves DNS alone until t
 | `records` | `["@"]` | Names to keep updated: `@` (the domain itself), `home`, or `home.example.com` |
 | `interval_minutes` | `15` | How often to check, in minutes |
 | `ipv6` | `false` | Also update AAAA records. Turn this on only if you have public IPv6 |
-| `min_ip_sources` | `3` | How many IP services must answer, and all agree, before DNS is changed (2–4) |
+| `router_upnp` | `true` | Require the router to confirm its public IPv4 address over UPnP |
+| `router_upnp_url` | (empty) | Router's UPnP description URL. Leave empty to find it automatically |
+
+The app uses host networking so it can find the router and see this machine's IPv6 addresses. It only makes outbound requests and doesn't open any ports.

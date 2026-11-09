@@ -2,26 +2,34 @@
 # One update pass: look up the current public IP and make the Cloudflare
 # DNS records match it. Exits non-zero if anything failed.
 #
-# The public IP is asked of several independent services. Records are only
-# changed when every service that answered agrees and at least
-# MIN_IP_SOURCES answered, so one compromised or broken service can't
-# point the DNS somewhere else.
+# Where the public IP comes from:
+#   IPv4: the router itself over UPnP (required when ROUTER_UPNP=true),
+#         checked against Cloudflare and AWS.
+#   IPv6: Cloudflare, checked against the addresses assigned to this machine
+#         (with no NAT, the AAAA record is this machine's own address).
+# Records are only changed when every source that answered agrees, the
+# local source (router / this machine) confirmed it, and at least
+# MIN_IP_SOURCES answered in total. One bad web service can't redirect DNS.
 #
 # Environment:
-#   CF_API_TOKEN    Cloudflare API token (Zone:Read + DNS:Edit on the zone)
-#   CF_ZONE         Zone name, e.g. example.com
-#   CF_RECORDS      Record names, separated by spaces/commas/newlines
-#                   ("@" = the zone apex, "home" = home.<zone>)
-#   CF_IPV6         "true" to also update AAAA records (default false)
-#   MIN_IP_SOURCES  How many IP services must answer (and agree); default 3
+#   CF_API_TOKEN     Cloudflare API token (Zone:Read + DNS:Edit on the zone)
+#   CF_ZONE          Zone name, e.g. example.com
+#   CF_RECORDS       Record names, separated by spaces/commas/newlines
+#                    ("@" = the zone apex, "home" = home.<zone>)
+#   CF_IPV6          "true" to also update AAAA records (default false)
+#   ROUTER_UPNP      "true" to require the router's UPnP answer for IPv4
+#   ROUTER_DESC_URL  Router's UPnP description URL; found by SSDP if empty
 set -uo pipefail
 
 CF_API="${CF_API:-https://api.cloudflare.com/client/v4}"
-# Independent operators: Cloudflare, AWS, ipify, ipinfo, ident.me
-IPV4_URLS="${IPV4_URLS:-https://1.1.1.1/cdn-cgi/trace https://checkip.amazonaws.com https://api.ipify.org https://ipinfo.io/ip https://ident.me}"
-IPV6_URLS="${IPV6_URLS:-https://[2606:4700:4700::1111]/cdn-cgi/trace https://api6.ipify.org https://v6.ipinfo.io/ip https://v6.ident.me}"
+# Independent operators: Cloudflare and AWS
+IPV4_URLS="${IPV4_URLS:-https://1.1.1.1/cdn-cgi/trace https://checkip.amazonaws.com}"
+IPV6_URLS="${IPV6_URLS:-https://[2606:4700:4700::1111]/cdn-cgi/trace}"
 CF_IPV6="${CF_IPV6:-false}"
-MIN_IP_SOURCES="${MIN_IP_SOURCES:-3}"
+ROUTER_UPNP="${ROUTER_UPNP:-false}"
+ROUTER_DESC_URL="${ROUTER_DESC_URL:-}"
+LOCAL_IPV6_CHECK="${LOCAL_IPV6_CHECK:-true}"
+MIN_IP_SOURCES="${MIN_IP_SOURCES:-2}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >&2; }
 
@@ -101,10 +109,100 @@ same_ip() {
   x=$(expand_ipv6 "$1") && y=$(expand_ipv6 "$2") && [ "$x" = "$y" ]
 }
 
+# ssdp_discover -> prints the UPnP description URL of the default gateway
+ssdp_discover() {
+  local gw loc host
+  if ! command -v socat >/dev/null; then
+    log "WARNING: socat isn't installed, so the router can't be discovered; set router_upnp_url"
+    return 1
+  fi
+  gw=$(ip -4 route show default 2>/dev/null | awk '{print $3; exit}')
+  # Only trust an answer that comes from the default gateway, not any LAN device.
+  while read -r loc; do
+    host=${loc#*://} host=${host%%[:/]*}
+    if [ -z "$gw" ] || [ "$host" = "$gw" ]; then echo "$loc"; return 0; fi
+  done < <(printf 'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\nMX: 2\r\nST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n' |
+    socat -t3 -T3 - UDP4-DATAGRAM:239.255.255.250:1900 2>/dev/null |
+    tr -d '\r' | sed -n 's/^[Ll][Oo][Cc][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*//p')
+  log "WARNING: no UPnP gateway answered${gw:+ from $gw} (is UPnP on in the router?)"
+  return 1
+}
+
+# router_ipv4 -> prints the external IPv4 address the router reports over UPnP
+router_ipv4() {
+  local desc=$ROUTER_DESC_URL xml st="" ctl="" rest resp re body
+  if [ -z "$desc" ]; then desc=$(ssdp_discover) || return 1; fi
+  if ! xml=$(curl -sS --max-time 5 "$desc" 2>/dev/null); then
+    log "WARNING: couldn't read the router's UPnP description at $desc"
+    return 1
+  fi
+  xml=$(tr -d '\r\n\t' <<<"$xml")
+  re='<serviceType>(urn:schemas-upnp-org:service:WAN(IP|PPP)Connection:[0-9]+)</serviceType>(.*)'
+  if [[ $xml =~ $re ]]; then
+    st=${BASH_REMATCH[1]} rest=${BASH_REMATCH[3]%%</service>*}
+    re='<controlURL>([^<]*)</controlURL>'
+    [[ $rest =~ $re ]] && ctl=${BASH_REMATCH[1]}
+  fi
+  if [ -z "$ctl" ]; then
+    log "WARNING: the router at $desc doesn't offer the UPnP WAN connection service"
+    return 1
+  fi
+  case $ctl in
+    http://* | https://*) ;;
+    /*) ctl="$(sed -E 's#^(https?://[^/]+).*#\1#' <<<"$desc")$ctl" ;;
+    *) ctl="${desc%/*}/$ctl" ;;
+  esac
+  body="<?xml version=\"1.0\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetExternalIPAddress xmlns:u=\"$st\"/></s:Body></s:Envelope>"
+  if ! resp=$(curl -sS --max-time 5 -X POST \
+    -H 'Content-Type: text/xml; charset="utf-8"' \
+    -H "SOAPAction: \"$st#GetExternalIPAddress\"" \
+    --data "$body" "$ctl" 2>/dev/null); then
+    log "WARNING: the router didn't answer the UPnP request at $ctl"
+    return 1
+  fi
+  re='<NewExternalIPAddress>([^<]*)</NewExternalIPAddress>'
+  if [[ $resp =~ $re ]]; then echo "${BASH_REMATCH[1]}"; return 0; fi
+  log "WARNING: the router's UPnP answer had no external IP address"
+  return 1
+}
+
+# local_ipv6_addrs -> prints the global IPv6 addresses assigned to this machine
+local_ipv6_addrs() {
+  if [ -n "${LOCAL_IPV6_ADDRS+x}" ]; then tr ' ,' '\n\n' <<<"$LOCAL_IPV6_ADDRS"; return; fi
+  if command -v ip >/dev/null; then
+    ip -6 addr show scope global 2>/dev/null | awk '$1 == "inet6" {sub(/\/.*/, "", $2); print $2}'
+  else
+    ifconfig 2>/dev/null | awk '$1 == "inet6" {sub(/%.*/, "", $2); print $2}'
+  fi
+}
+
+# is_local_ipv6 IP -> true if IP is assigned to one of this machine's interfaces
+is_local_ipv6() {
+  local a
+  while read -r a; do
+    [ -n "$a" ] && same_ip "$a" "$1" && return 0
+  done < <(local_ipv6_addrs)
+  return 1
+}
+
 # get_ip 4|6 -> prints the public IP, only if the sources agree
 get_ip() {
   local family=$1 urls url body ip first="" answered=0 agree=1 report=""
   if [ "$family" = 4 ]; then urls=$IPV4_URLS; else urls=$IPV6_URLS; fi
+
+  # The router is the authority for IPv4. If it's in use, it must answer.
+  if [ "$family" = 4 ] && [ "$ROUTER_UPNP" = "true" ]; then
+    if ! ip=$(router_ipv4); then
+      log "ERROR: the router didn't report its external IPv4 address over UPnP; not updating"
+      return 1
+    fi
+    if ! public_ipv4 "$ip"; then
+      log "ERROR: the router reports '$ip', which isn't a public address (is it behind another router?); not updating"
+      return 1
+    fi
+    first=$ip answered=1 report=" router(UPnP)=$ip"
+  fi
+
   for url in $urls; do
     if ! body=$(curl -sS "-$family" --max-time 10 "$url" 2>/dev/null); then
       log "WARNING: no answer from $url"
@@ -130,6 +228,18 @@ get_ip() {
   if [ $agree -eq 0 ]; then
     log "ERROR: IPv$family sources disagree, not updating:$report"
     return 1
+  fi
+  if [ "$family" = 4 ] && [ "$ROUTER_UPNP" = "true" ] && [ $answered -lt 2 ]; then
+    log "ERROR: no outside service confirmed the router's IPv4 address; not updating:$report"
+    return 1
+  fi
+  # With no NAT on IPv6, the address the outside world sees must be one of ours.
+  if [ "$family" = 6 ] && [ -n "$first" ] && [ "$LOCAL_IPV6_CHECK" = "true" ]; then
+    if ! is_local_ipv6 "$first"; then
+      log "ERROR: $first isn't assigned to this machine; not updating AAAA:$report"
+      return 1
+    fi
+    answered=$((answered + 1)) report="$report this-machine=$first"
   fi
   if [ $answered -lt "$MIN_IP_SOURCES" ]; then
     log "ERROR: only $answered IPv$family source(s) answered, need $MIN_IP_SOURCES; not updating:$report"
