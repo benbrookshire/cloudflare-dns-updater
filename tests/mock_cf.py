@@ -18,8 +18,11 @@ class H(BaseHTTPRequestHandler):
         return True
     def do_GET(self):
         u = urlparse(self.path); q = parse_qs(u.query)
-        if u.path == "/ip":
-            b = b"fl=1\nip=203.0.113.7\nts=1\n"; self.send_response(200); self.end_headers(); self.wfile.write(b); return
+        # /ip/<value> answers like ipify (bare IP); /trace/<value> like Cloudflare's trace
+        if u.path.startswith("/ip/") or u.path.startswith("/trace/"):
+            v = u.path.split("/", 2)[2]
+            b = ("fl=1\nip=%s\nts=1\n" % v if u.path.startswith("/trace/") else v + "\n").encode()
+            self.send_response(200); self.end_headers(); self.wfile.write(b); return
         if not self.auth(): return
         if u.path == "/zones":
             self.send({"success": True, "result": [{"id": "z1"}] if q.get("name") == ["example.com"] else []}); return

@@ -14,3 +14,6 @@ configuration:
   ipv6:
     name: Update IPv6 (AAAA) too
     description: Only turn on if your home network has public IPv6.
+  min_ip_sources:
+    name: Minimum agreeing IP sources
+    description: The public IP is checked with several independent services (4 for IPv6, 5 for IPv4). DNS is only updated if all that answer agree and at least this many answered.

@@ -5,7 +5,8 @@ CF_API_TOKEN="$(bashio::config 'api_token')"
 CF_ZONE="$(bashio::config 'zone')"
 CF_RECORDS="$(bashio::config 'records')"
 CF_IPV6="$(bashio::config 'ipv6')"
-export CF_API_TOKEN CF_ZONE CF_RECORDS CF_IPV6
+MIN_IP_SOURCES="$(bashio::config 'min_ip_sources' 3)"
+export CF_API_TOKEN CF_ZONE CF_RECORDS CF_IPV6 MIN_IP_SOURCES
 INTERVAL="$(bashio::config 'interval_minutes')"
 
 if bashio::var.is_empty "${CF_API_TOKEN}"; then
