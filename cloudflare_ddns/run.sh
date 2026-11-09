@@ -1,10 +1,11 @@
 #!/usr/bin/with-contenv bashio
 # Reads the app options and runs an update pass every N minutes.
 
-export CF_API_TOKEN="$(bashio::config 'api_token')"
-export CF_ZONE="$(bashio::config 'zone')"
-export CF_RECORDS="$(bashio::config 'records')"
-export CF_IPV6="$(bashio::config 'ipv6')"
+CF_API_TOKEN="$(bashio::config 'api_token')"
+CF_ZONE="$(bashio::config 'zone')"
+CF_RECORDS="$(bashio::config 'records')"
+CF_IPV6="$(bashio::config 'ipv6')"
+export CF_API_TOKEN CF_ZONE CF_RECORDS CF_IPV6
 INTERVAL="$(bashio::config 'interval_minutes')"
 
 if bashio::var.is_empty "${CF_API_TOKEN}"; then

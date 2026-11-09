@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs ddns.sh against a local mock of the Cloudflare API.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 PORT=18765
 python3 tests/mock_cf.py "$PORT" & PID=$!
@@ -17,7 +17,7 @@ check() { # name expected_exit expected_output_substring -- command...
   if [ "$rc" = "$want" ] && grep -qF -- "$grep_for" <<<"$out"; then
     echo "ok   $name"
   else
-    echo "FAIL $name (exit $rc, wanted $want)"; echo "$out" | sed 's/^/     /'; fail=1
+    echo "FAIL $name (exit $rc, wanted $want)"; printf '     %s\n' "$out"; fail=1
   fi
 }
 check "updates changed record"   0 "Updated A example.com: 1.1.1.1 -> 203.0.113.7" -- env CF_API_TOKEN=good CF_RECORDS="example.com" bash cloudflare_ddns/ddns.sh
