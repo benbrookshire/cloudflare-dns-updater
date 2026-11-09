@@ -24,12 +24,13 @@ check() { # name expected_exit expected_output_substring -- command...
   fi
 }
 apex_ip() { curl -s -H "Authorization: Bearer good" "$M/state" | jq -r '.records[] | select(.name=="example.com" and .type=="A") | .content'; }
+# shellcheck disable=SC2329  # called through check "$@"
 ddns() { env CF_API_TOKEN=good "$@" bash cloudflare_ddns/ddns.sh; }
 
 echo "-- IP source agreement"
 check "disagreeing source blocks update" 1 "IPv4 sources disagree, not updating" -- \
   ddns CF_RECORDS=@ IPV4_URLS="$M/trace/203.0.113.7 $M/ip/203.0.113.7 $M/ip/198.51.100.66"
-[ "$(apex_ip)" = "1.1.1.1" ] && echo "ok   record untouched after disagreement" || { echo "FAIL record changed after disagreement"; fail=1; }
+if [ "$(apex_ip)" = "1.1.1.1" ]; then echo "ok   record untouched after disagreement"; else echo "FAIL record changed after disagreement"; fail=1; fi
 check "too few sources blocks update" 1 "only 2 IPv4 source(s) answered, need 3" -- \
   ddns CF_RECORDS=@ IPV4_URLS="$M/ip/203.0.113.7 $M/ip/203.0.113.7 http://127.0.0.1:1/down"
 check "private IP answer is ignored" 1 "isn't a public IPv4 address; ignoring it" -- \
@@ -46,10 +47,10 @@ check "no-op when unchanged"     0 "A example.com is already 203.0.113.7"      -
 check "bad token fails"          1 "Invalid access token"                    -- env CF_API_TOKEN=bad CF_RECORDS=@ bash cloudflare_ddns/ddns.sh
 check "unknown zone fails"       1 "zone nope.com not found"                 -- ddns CF_ZONE=nope.com CF_RECORDS=@
 proxied=$(curl -s -H "Authorization: Bearer good" "$M/state" | jq -r '.records[] | select(.name=="example.com") | .proxied')
-[ "$proxied" = "true" ] && echo "ok   keeps proxy setting" || { echo "FAIL keeps proxy setting"; fail=1; }
+if [ "$proxied" = "true" ]; then echo "ok   keeps proxy setting"; else echo "FAIL keeps proxy setting"; fail=1; fi
 
 echo "-- Address helpers"
-# shellcheck source=../cloudflare_ddns/ddns.sh
+# shellcheck source=cloudflare_ddns/ddns.sh
 source cloudflare_ddns/ddns.sh
 unit() { # name expected(0|1) -- command...
   local name=$1 want=$2; shift 3

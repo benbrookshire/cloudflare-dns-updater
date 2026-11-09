@@ -14,7 +14,7 @@ jobs:
         with:
           path: "./cloudflare_ddns"
       - name: ShellCheck
-        run: shellcheck -s bash cloudflare_ddns/*.sh tests/*.sh
+        run: shellcheck -x -s bash cloudflare_ddns/*.sh tests/*.sh
 
   test:
     runs-on: ubuntu-latest
