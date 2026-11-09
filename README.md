@@ -20,7 +20,7 @@ tests/                   # mock Cloudflare API + tests, run in CI
 
 1. In Home Assistant, go to **Settings → Apps → App store → ⋮ → Repositories**. Add `https://github.com/benbrookshire/cloudflare-dns-updater`, or click the badge above.
 2. Open **Cloudflare DDNS**, then click **Install**. Home Assistant builds the image on your device, which takes a minute.
-3. On the **Configuration** tab, paste your API token (just the token value). See [DOCS.md](cloudflare_ddns/DOCS.md) for how to create one.
+3. On the **Configuration** tab, paste your API token (just the token value) and set **zone** to your domain, e.g. `example.com`. See [DOCS.md](cloudflare_ddns/DOCS.md) for how to create the token.
 4. Click **Start**, and turn on **Watchdog** and **Auto update** if you want them.
 5. Open the **Log** tab. You should see either `A example.com is already <ip>` or `Updated A example.com: ...`.
 

@@ -12,7 +12,7 @@ Every `interval_minutes` (15 by default), this app looks up your home's public I
 2. Add these permissions:
    - **Zone → Zone → Read**
    - **Zone → DNS → Edit**
-3. Under **Zone Resources**, choose **Include → Specific zone → example.com**.
+3. Under **Zone Resources**, choose **Include → Specific zone →** your domain.
 4. Create the token and copy it. Cloudflare shows it only once.
 
 ## Options
@@ -20,7 +20,7 @@ Every `interval_minutes` (15 by default), this app looks up your home's public I
 | Option | Default | Meaning |
 |---|---|---|
 | `api_token` | | The token you just created |
-| `zone` | `example.com` | The domain as it appears in Cloudflare |
-| `records` | `[example.com]` | Names to keep updated: `example.com`, `@`, `home`, or `home.example.com` |
+| `zone` | (required) | The domain as it appears in Cloudflare, e.g. `example.com` |
+| `records` | `["@"]` | Names to keep updated: `@` (the domain itself), `home`, or `home.example.com` |
 | `interval_minutes` | `15` | How often to check, in minutes |
 | `ipv6` | `false` | Also update AAAA records. Turn this on only if you have public IPv6 |

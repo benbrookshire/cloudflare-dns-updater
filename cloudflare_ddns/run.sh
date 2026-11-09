@@ -11,6 +11,9 @@ INTERVAL="$(bashio::config 'interval_minutes')"
 if bashio::var.is_empty "${CF_API_TOKEN}"; then
   bashio::exit.nok "Set api_token in the app's Configuration tab."
 fi
+if bashio::var.is_empty "${CF_ZONE}"; then
+  bashio::exit.nok "Set zone (your domain, e.g. example.com) in the app's Configuration tab."
+fi
 
 bashio::log.info "Updating ${CF_RECORDS//$'\n'/, } in ${CF_ZONE} every ${INTERVAL} minutes"
 

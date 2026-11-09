@@ -4,10 +4,10 @@ configuration:
     description: Token with Zone → Zone → Read and Zone → DNS → Edit for your zone.
   zone:
     name: Zone
-    description: The domain as it appears in Cloudflare, e.g. example.com.
+    description: The domain as it appears in Cloudflare, e.g. example.com. Required.
   records:
     name: Records
-    description: Names to keep updated. Use the full name (example.com, home.example.com), "@" for the apex, or a short name like "home".
+    description: Names to keep updated. "@" is the domain itself; use a short name like "home" or a full name like home.example.com.
   interval_minutes:
     name: Check interval (minutes)
     description: How often to check the public IP and update Cloudflare.
