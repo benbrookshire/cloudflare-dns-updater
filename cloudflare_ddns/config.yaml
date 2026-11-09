@@ -1,0 +1,23 @@
+name: Cloudflare DDNS
+version: "1.0.0"
+slug: cloudflare_ddns
+description: Keeps Cloudflare DNS records pointed at your home's public IP
+url: https://github.com/benbrookshire/cloudflare-dns-updater
+arch:
+  - aarch64
+  - amd64
+init: false
+options:
+  api_token: ""
+  zone: example.com
+  records:
+    - example.com
+  interval_minutes: 15
+  ipv6: false
+schema:
+  api_token: password
+  zone: str
+  records:
+    - str
+  interval_minutes: int(1,1440)
+  ipv6: bool

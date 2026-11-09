@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint app config
+        uses: frenck/action-addon-linter@v2
+        with:
+          path: "./cloudflare_ddns"
+      - name: ShellCheck
+        run: shellcheck -s bash cloudflare_ddns/*.sh tests/*.sh
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test ddns.sh against mock Cloudflare API
+        run: bash tests/test_ddns.sh
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image (amd64)
+        run: docker build --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.21 cloudflare_ddns

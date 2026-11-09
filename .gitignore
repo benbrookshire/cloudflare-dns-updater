@@ -1,0 +1,6 @@
+# Never commit credentials
+*token*
+.env
+secrets.yaml
+.DS_Store
+__pycache__/

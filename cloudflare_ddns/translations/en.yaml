@@ -1,0 +1,16 @@
+configuration:
+  api_token:
+    name: Cloudflare API token
+    description: Token with Zone → Zone → Read and Zone → DNS → Edit for your zone.
+  zone:
+    name: Zone
+    description: The domain as it appears in Cloudflare, e.g. example.com.
+  records:
+    name: Records
+    description: Names to keep updated. Use the full name (example.com, home.example.com), "@" for the apex, or a short name like "home".
+  interval_minutes:
+    name: Check interval (minutes)
+    description: How often to check the public IP and update Cloudflare.
+  ipv6:
+    name: Update IPv6 (AAAA) too
+    description: Only turn on if your home network has public IPv6.
