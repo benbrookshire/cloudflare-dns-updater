@@ -168,7 +168,7 @@ router_ipv4() {
 
 # local_ipv6_addrs -> prints the global IPv6 addresses assigned to this machine
 local_ipv6_addrs() {
-  if [ -n "${LOCAL_IPV6_ADDRS+x}" ]; then tr ' ,' '\n\n' <<<"$LOCAL_IPV6_ADDRS"; return; fi
+  if [ -n "${LOCAL_IPV6_ADDRS+x}" ]; then tr -s ' ,' '\n' <<<"$LOCAL_IPV6_ADDRS"; return; fi
   if command -v ip >/dev/null; then
     ip -6 addr show scope global 2>/dev/null | awk '$1 == "inet6" {sub(/\/.*/, "", $2); print $2}'
   else
